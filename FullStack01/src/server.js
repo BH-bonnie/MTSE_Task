@@ -5,7 +5,7 @@ import initWebRoutes from './route/web';
 import connectDB from './config/configdb';
 require('dotenv').config();
 
-let apP = express();
+let app = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }))

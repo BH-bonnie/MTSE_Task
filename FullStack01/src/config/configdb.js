@@ -1,7 +1,7 @@
 import { Sequelize } from "sequelize";
-const sequelize = new Sequelize('node_fullstack', 'root', 'root', {
+const sequelize = new Sequelize('node_fullstask', 'root', 'root', {
     host: 'localhost',
-    dialect: ' mysql',
+    dialect: 'mysql',
     logging: false
 });
 let connectDB = async () => {
