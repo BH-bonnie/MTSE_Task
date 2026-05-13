@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #fafafa;
+  color: #333;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+/* Swiper custom */
+.swiper-button-next, .swiper-button-prev {
+  color: #f97316 !important;
+  background: white;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50%;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+.swiper-button-next:after, .swiper-button-prev:after {
+  font-size: 18px !important;
+  font-weight: bold;
+}
+.swiper-pagination-bullet-active {
+  background: #f97316 !important;
+}
+
+/* Utility classes */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Layout fixing */
+.app-wrapper {
+  overflow-x: hidden;
+}
