@@ -64,6 +64,10 @@ export const getHomeProductsApi = () => {
     return axios.get("/v1/api/products/home");
 };
 
+export const getTopProductsApi = () => {
+    return axios.get("/v1/api/products/top");
+};
+
 export const getAllProductsApi = (params) => {
     return axios.get("/v1/api/products", { params });
 };

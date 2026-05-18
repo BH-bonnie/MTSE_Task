@@ -25,6 +25,7 @@ routerAPI.post("/reset-password", handleResetPassword);
 // Product routes (Public)
 routerAPI.get("/products", productController.getAllProducts);
 routerAPI.get("/products/home", productController.getHomeProducts);
+routerAPI.get("/products/top", productController.getTopProducts);
 routerAPI.get("/products/:id", productController.getProductById);
 routerAPI.get("/categories", productController.getCategories);
 

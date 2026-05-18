@@ -11,11 +11,14 @@ const SearchPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(true);
-  
+
   // Filter states
   const [priceRange, setPriceRange] = useState([0, 100000]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'newest');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   const query = searchParams.get('q') || '';
 
   useEffect(() => {
@@ -31,27 +34,56 @@ const SearchPage = () => {
   }, []);
 
   useEffect(() => {
+    // Reset page and products when filters change
+    setPage(1);
+    setProducts([]);
+  }, [query, selectedCategory, priceRange, sortBy]);
+
+  useEffect(() => {
     const fetchProducts = async () => {
-      setLoading(true);
+      if (page === 1) setLoading(true);
+      else setLoadingMore(true);
+
       try {
         const params = {
           search: query,
           category: selectedCategory,
           minPrice: priceRange[0],
           maxPrice: priceRange[1],
-          sort: sortBy
+          sort: sortBy,
+          page: page,
+          limit: 6 // For demonstration of lazy loading
         };
         const res = await getAllProductsApi(params);
-        setProducts(res?.data?.products || []);
+        if (page === 1) {
+          setProducts(res?.data?.products || []);
+        } else {
+          setProducts(prev => [...prev, ...(res?.data?.products || [])]);
+        }
+        setTotalPages(res?.data?.pagination?.totalPages || 1);
       } catch (err) {
         console.error(err);
-        setProducts([]);
+        if (page === 1) setProducts([]);
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     };
     fetchProducts();
-  }, [query, selectedCategory, priceRange, sortBy]);
+  }, [query, selectedCategory, priceRange, sortBy, page]);
+
+  // Infinite scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + document.documentElement.scrollTop >= document.documentElement.offsetHeight - 100) {
+        if (!loading && !loadingMore && page < totalPages) {
+          setPage(prev => prev + 1);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loading, loadingMore, page, totalPages]);
 
   const handleCategoryClick = (catSlug) => {
     const newCat = selectedCategory === catSlug ? '' : catSlug;
@@ -68,16 +100,16 @@ const SearchPage = () => {
       {/* Header Info */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
         <div className="space-y-1">
-           <h1 className="text-4xl font-black text-gray-800 tracking-tight flex items-center gap-3">
-             {query ? `Results for "${query}"` : 'Our Menu'}
-             {query && <button onClick={() => setSearchParams({})} className="p-1 hover:bg-gray-100 rounded-full"><X className="h-5 w-5 text-gray-400"/></button>}
-           </h1>
-           <p className="text-gray-400 font-medium">{products?.length || 0} delicious drinks found</p>
+          <h1 className="text-4xl font-black text-gray-800 tracking-tight flex items-center gap-3">
+            {query ? `Results for "${query}"` : 'Our Menu'}
+            {query && <button onClick={() => setSearchParams({})} className="p-1 hover:bg-gray-100 rounded-full"><X className="h-5 w-5 text-gray-400" /></button>}
+          </h1>
+          <p className="text-gray-400 font-medium">{products?.length || 0} delicious drinks found</p>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <div className="relative group">
-            <select 
+            <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               className="appearance-none bg-white border border-gray-100 rounded-2xl py-3.5 pl-6 pr-12 font-bold text-sm text-gray-600 focus:border-orange-500 outline-none shadow-sm hover:shadow-md transition-all cursor-pointer"
@@ -89,8 +121,8 @@ const SearchPage = () => {
             </select>
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none group-hover:text-orange-500 transition-colors" />
           </div>
-          
-          <button 
+
+          <button
             onClick={() => setShowFilters(!showFilters)}
             className={`p-3.5 rounded-2xl border transition-all flex items-center gap-2 font-bold text-sm ${showFilters ? 'bg-orange-500 border-orange-500 text-white shadow-xl shadow-orange-100' : 'bg-white border-gray-100 text-gray-600 hover:border-orange-200'}`}
           >
@@ -104,7 +136,7 @@ const SearchPage = () => {
         {/* Sidebar Filter */}
         <AnimatePresence>
           {showFilters && (
-            <motion.aside 
+            <motion.aside
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
@@ -114,14 +146,14 @@ const SearchPage = () => {
               <div className="bg-white p-8 rounded-[32px] border border-gray-50 shadow-sm">
                 <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Categories</h3>
                 <div className="space-y-2">
-                  <button 
+                  <button
                     onClick={() => handleCategoryClick('')}
                     className={`flex items-center justify-between w-full p-4 rounded-2xl font-bold text-sm transition-all ${!selectedCategory ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
                   >
                     All Drinks
                   </button>
                   {categories.map(cat => (
-                    <button 
+                    <button
                       key={cat._id}
                       onClick={() => handleCategoryClick(cat.slug)}
                       className={`flex items-center justify-between w-full p-4 rounded-2xl font-bold text-sm transition-all ${selectedCategory === cat.slug ? 'bg-orange-500 text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
@@ -136,10 +168,10 @@ const SearchPage = () => {
               <div className="bg-white p-8 rounded-[32px] border border-gray-50 shadow-sm">
                 <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Price Range</h3>
                 <div className="space-y-6">
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100000" 
+                  <input
+                    type="range"
+                    min="0"
+                    max="100000"
                     step="5000"
                     value={priceRange[1]}
                     onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
@@ -173,7 +205,7 @@ const SearchPage = () => {
               ))}
             </div>
           ) : products.length > 0 ? (
-            <motion.div 
+            <motion.div
               layout
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
             >
@@ -183,21 +215,33 @@ const SearchPage = () => {
             </motion.div>
           ) : (
             <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[48px] border-2 border-dashed border-gray-100">
-               <div className="w-24 h-24 bg-orange-50 rounded-full flex items-center justify-center mb-6">
-                 <SearchIcon className="h-10 w-10 text-orange-200" />
-               </div>
-               <h3 className="text-2xl font-black text-gray-800 mb-2">No drinks match your filters</h3>
-               <p className="text-gray-400 font-medium">Try adjusting your search or resetting filters.</p>
-               <button 
-                 onClick={() => {
-                   setSearchParams({});
-                   setSelectedCategory('');
-                   setPriceRange([0, 100000]);
-                 }}
-                 className="mt-8 px-8 py-3 bg-gray-800 text-white rounded-2xl font-black text-sm hover:bg-gray-900 transition-all shadow-xl"
-               >
-                 Reset All Filters
-               </button>
+              <div className="w-24 h-24 bg-orange-50 rounded-full flex items-center justify-center mb-6">
+                <SearchIcon className="h-10 w-10 text-orange-200" />
+              </div>
+              <h3 className="text-2xl font-black text-gray-800 mb-2">No drinks match your filters</h3>
+              <p className="text-gray-400 font-medium">Try adjusting your search or resetting filters.</p>
+              <button
+                onClick={() => {
+                  setSearchParams({});
+                  setSelectedCategory('');
+                  setPriceRange([0, 100000]);
+                }}
+                className="mt-8 px-8 py-3 bg-gray-800 text-white rounded-2xl font-black text-sm hover:bg-gray-900 transition-all shadow-xl"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          )}
+
+          {/* Loading more indicator */}
+          {loadingMore && (
+            <div className="flex justify-center mt-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-orange-500"></div>
+            </div>
+          )}
+          {!loading && !loadingMore && products.length > 0 && page >= totalPages && (
+            <div className="text-center mt-10 text-gray-400 font-medium">
+              You have reached the end of the list.
             </div>
           )}
         </div>

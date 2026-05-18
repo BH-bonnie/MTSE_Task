@@ -28,8 +28,26 @@ const productController = {
             else if (sort === 'newest') sortQuery.createdAt = -1;
             else sortQuery.createdAt = -1;
 
-            const products = await Product.find(query).populate('category').sort(sortQuery);
-            res.status(200).json({ products });
+            const pageNum = parseInt(req.query.page) || 1;
+            const limitNum = parseInt(req.query.limit) || 10;
+            const skip = (pageNum - 1) * limitNum;
+
+            const total = await Product.countDocuments(query);
+            const products = await Product.find(query)
+                .populate('category')
+                .sort(sortQuery)
+                .skip(skip)
+                .limit(limitNum);
+
+            res.status(200).json({ 
+                products,
+                pagination: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    totalPages: Math.ceil(total / limitNum)
+                }
+            });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }
@@ -69,6 +87,51 @@ const productController = {
         try {
             const categories = await Category.find();
             res.status(200).json(categories);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    },
+
+    getTopProducts: async (req, res) => {
+        try {
+            const pageNum = parseInt(req.query.page) || 1;
+            const limitNum = parseInt(req.query.limit) || 10;
+            const skip = (pageNum - 1) * limitNum;
+            
+            // Top 10 best-selling products
+            const bestSellingTotal = await Product.countDocuments({ sold: { $gt: 0 } });
+            const bestSelling = await Product.find()
+                .sort({ sold: -1 })
+                .skip(skip)
+                .limit(limitNum);
+
+            // Top 10 most viewed products
+            const mostViewedTotal = await Product.countDocuments({ views: { $gt: 0 } });
+            const mostViewed = await Product.find()
+                .sort({ views: -1 })
+                .skip(skip)
+                .limit(limitNum);
+
+            res.status(200).json({ 
+                bestSelling: {
+                    products: bestSelling,
+                    pagination: {
+                        total: bestSellingTotal,
+                        page: pageNum,
+                        limit: limitNum,
+                        totalPages: Math.ceil(bestSellingTotal / limitNum)
+                    }
+                }, 
+                mostViewed: {
+                    products: mostViewed,
+                    pagination: {
+                        total: mostViewedTotal,
+                        page: pageNum,
+                        limit: limitNum,
+                        totalPages: Math.ceil(mostViewedTotal / limitNum)
+                    }
+                }
+            });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

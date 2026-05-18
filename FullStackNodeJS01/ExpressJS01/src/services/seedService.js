@@ -115,7 +115,42 @@ const seedData = async () => {
             }
         ];
 
-        await Product.insertMany(products);
+        // Generate 30 extra products for pagination and scrolling
+        const extraProducts = [];
+        const baseImages = [
+            "https://images.unsplash.com/photo-1544145945-f90425340c7e?q=80&w=600",
+            "https://images.unsplash.com/photo-1558857563-b371f30bb673?q=80&w=600",
+            "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?q=80&w=600",
+            "https://images.unsplash.com/photo-1556679343-c7306c1976bc?q=80&w=600",
+            "https://images.unsplash.com/photo-1597403343454-11b332bc5620?q=80&w=600",
+            "https://images.unsplash.com/photo-1576092768241-dec231879fc3?q=80&w=600"
+        ];
+        
+        for (let i = 1; i <= 30; i++) {
+            const catIndex = i % categories.length;
+            const isBest = i % 3 === 0;
+            const isNew = i % 2 === 0;
+            const hasPromo = i % 4 === 0;
+            const price = 30000 + (Math.floor(Math.random() * 20) * 1000);
+            
+            extraProducts.push({
+                name: `Awesome Drink ${i}`,
+                slug: `awesome-drink-${i}`,
+                description: `This is a randomly generated delicious drink number ${i}.`,
+                price: price,
+                promotionPrice: hasPromo ? price - 5000 : 0,
+                images: [baseImages[i % baseImages.length]],
+                category: createdCategories[catIndex]._id,
+                stock: 50 + i,
+                sold: isBest ? 200 + i * 10 : 10 + i,
+                views: isBest ? 500 + i * 20 : 50 + i,
+                isBestSeller: isBest,
+                isNewest: isNew,
+                details: `Ingredients: Tea, sugar, water. Calories: ${200 + i}kcal.`
+            });
+        }
+
+        await Product.insertMany([...products, ...extraProducts]);
         console.log("Data seeded successfully!");
     } catch (error) {
         console.error("Error seeding data:", error);

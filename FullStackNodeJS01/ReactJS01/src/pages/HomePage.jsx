@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { getHomeProductsApi } from '../util/api';
+import { getHomeProductsApi, getTopProductsApi } from '../util/api';
 import ProductCard from '../components/products/ProductCard';
-import { ArrowRight, Zap, TrendingUp, Sparkles, ChevronRight } from 'lucide-react';
+import { ArrowRight, Zap, TrendingUp, Sparkles, ChevronRight, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
 
 const HomePage = () => {
-  const [data, setData] = useState({ newest: [], bestSellers: [], promotions: [] });
+  const [data, setData] = useState({ newest: [], promotions: [] });
+  const [topData, setTopData] = useState({ bestSelling: [], mostViewed: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await getHomeProductsApi();
-        setData(res.data);
+        const [homeRes, topRes] = await Promise.all([
+          getHomeProductsApi(),
+          getTopProductsApi()
+        ]);
+        setData(homeRes.data);
+        setTopData({
+          bestSelling: topRes.data.bestSelling.products,
+          mostViewed: topRes.data.mostViewed.products
+        });
       } catch (err) {
         console.error(err);
       } finally {
@@ -130,10 +143,65 @@ const HomePage = () => {
               Explore All <ArrowRight className="h-5 w-5" />
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {data.bestSellers.map(product => (
-              <ProductCard key={product._id} product={product} />
-            ))}
+          <div className="pb-12">
+            <Swiper
+              modules={[Navigation, Pagination]}
+              spaceBetween={30}
+              slidesPerView={1}
+              navigation
+              pagination={{ clickable: true }}
+              breakpoints={{
+                640: { slidesPerView: 2 },
+                1024: { slidesPerView: 4 }
+              }}
+              className="px-4 py-8"
+            >
+              {topData.bestSelling.map(product => (
+                <SwiperSlide key={product._id} className="h-auto">
+                  <ProductCard product={product} />
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+        </div>
+      </section>
+
+      {/* Most Viewed */}
+      <section className="-mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12 py-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-end justify-between mb-12">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-blue-500">
+                <div className="p-2 bg-blue-50 rounded-xl">
+                  <Eye className="h-6 w-6" />
+                </div>
+                <span className="text-xs font-black uppercase tracking-[0.2em]">Trending Now</span>
+              </div>
+              <h2 className="text-4xl font-black text-gray-800 tracking-tight">Most Viewed</h2>
+            </div>
+            <button className="flex items-center gap-1 text-sm font-black text-orange-500 hover:gap-2 transition-all">
+              Explore All <ArrowRight className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="pb-12">
+            <Swiper
+              modules={[Navigation, Pagination]}
+              spaceBetween={30}
+              slidesPerView={1}
+              navigation
+              pagination={{ clickable: true }}
+              breakpoints={{
+                640: { slidesPerView: 2 },
+                1024: { slidesPerView: 4 }
+              }}
+              className="px-4 py-8"
+            >
+              {topData.mostViewed.map(product => (
+                <SwiperSlide key={product._id} className="h-auto">
+                  <ProductCard product={product} />
+                </SwiperSlide>
+              ))}
+            </Swiper>
           </div>
         </div>
       </section>
