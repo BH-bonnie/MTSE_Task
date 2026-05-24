@@ -12,6 +12,7 @@ const Navbar = () => {
   
   // Fix lỗi state bằng optional chaining theo yêu cầu
   const user = useSelector((state) => state?.auth?.user || state?.auth?.account || null);
+  const totalItems = useSelector((state) => state?.cart?.totalItems || 0);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -31,7 +32,11 @@ const Navbar = () => {
     { name: 'Promotions', path: '/search?sale=true' },
     { name: 'New Arrivals', path: '/search?new=true' },
     { name: 'Best Sellers', path: '/search?best=true' },
-    { name: 'About Us', path: '/about' },
+    ...(user ? [{ name: 'My Orders', path: '/orders' }] : []),
+    ...(user && user.role === 'admin' ? [
+      { name: 'Admin Hub', path: '/admin' },
+      { name: 'Manage Orders', path: '/admin/orders' }
+    ] : []),
   ];
 
   return (
@@ -80,7 +85,7 @@ const Navbar = () => {
             {user ? (
               <div className="flex items-center space-x-3">
                 <Link 
-                  to="/profile"
+                  to={user.role === 'admin' ? '/admin' : '/profile'}
                   className="hidden sm:flex items-center space-x-2 pr-3 border-r border-gray-100 group cursor-pointer"
                 >
                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center group-hover:bg-orange-500 transition-colors">
@@ -107,9 +112,11 @@ const Navbar = () => {
             
             <Link to="/cart" className="relative p-2 text-gray-700 hover:text-orange-500 transition-colors">
               <ShoppingCart className="h-6 w-6" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
-                0
-              </span>
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                  {totalItems}
+                </span>
+              )}
             </Link>
 
             {/* Mobile Toggle */}

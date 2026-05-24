@@ -1,12 +1,34 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Star, Heart, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useDispatch, useSelector } from 'react-redux';
+import { addToCart } from '../../store/slices/cartSlice';
 
 const ProductCard = ({ product }) => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useSelector((state) => state.auth);
+
   const hasPromotion = product.promotionPrice > 0;
   // Fallback image nếu không có ảnh
   const productImage = product?.images?.[0] || 'https://via.placeholder.com/400x500?text=No+Image';
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      alert("Vui lòng đăng nhập để thêm vào giỏ hàng!");
+      navigate('/login');
+      return;
+    }
+    try {
+      await dispatch(addToCart({ productId: product._id, quantity: 1 })).unwrap();
+      alert("Đã thêm sản phẩm vào giỏ hàng!");
+    } catch (err) {
+      alert(err || "Lỗi khi thêm sản phẩm");
+    }
+  };
   
   return (
     <motion.div 
@@ -44,7 +66,10 @@ const ProductCard = ({ product }) => {
 
         {/* Quick Action Overlay */}
         <div className="absolute inset-x-4 bottom-4 translate-y-12 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
-          <button className="w-full bg-white text-gray-800 py-3 rounded-2xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-colors">
+          <button 
+            onClick={handleAdd}
+            className="w-full bg-white text-gray-800 py-3 rounded-2xl font-bold text-sm shadow-xl flex items-center justify-center gap-2 hover:bg-orange-500 hover:text-white transition-colors cursor-pointer"
+          >
             <Plus className="h-4 w-4" /> Quick Add
           </button>
         </div>
@@ -79,7 +104,10 @@ const ProductCard = ({ product }) => {
               <span className="text-gray-800 font-black text-xl">{product.price.toLocaleString()}đ</span>
             )}
           </div>
-          <button className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-500 hover:text-white transition-all">
+          <button 
+            onClick={handleAdd}
+            className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-500 hover:text-white transition-all cursor-pointer"
+          >
             <ShoppingCart className="h-5 w-5" />
           </button>
         </div>

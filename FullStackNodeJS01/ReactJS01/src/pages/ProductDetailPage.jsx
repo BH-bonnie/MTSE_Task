@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, EffectFade } from 'swiper/modules';
 import { getProductDetailApi } from '../util/api';
 import ProductCard from '../components/products/ProductCard';
 import { Minus, Plus, ShoppingCart, ArrowLeft, Package, BarChart3, Tag, Star, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useDispatch, useSelector } from 'react-redux';
+import { addToCart } from '../store/slices/cartSlice';
 
 // Import Swiper styles
 import 'swiper/css';
@@ -15,12 +17,44 @@ import 'swiper/css/effect-fade';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [product, setProduct] = useState(null);
   const [similarProducts, setSimilarProducts] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [size, setSize] = useState('M');
   const [toppings, setToppings] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const handleAddToCart = async () => {
+    if (!isAuthenticated) {
+      alert("Vui lòng đăng nhập để thêm vào giỏ hàng!");
+      navigate('/login');
+      return;
+    }
+    try {
+      await dispatch(addToCart({ productId: product._id, quantity })).unwrap();
+      alert("Đã thêm sản phẩm vào giỏ hàng!");
+    } catch (err) {
+      alert(err || "Lỗi thêm vào giỏ hàng");
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!isAuthenticated) {
+      alert("Vui lòng đăng nhập để mua hàng!");
+      navigate('/login');
+      return;
+    }
+    try {
+      await dispatch(addToCart({ productId: product._id, quantity })).unwrap();
+      navigate('/cart');
+    } catch (err) {
+      alert(err || "Lỗi thêm vào giỏ hàng");
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -194,10 +228,18 @@ const ProductDetailPage = () => {
             </div>
 
             <div className="flex gap-4">
-              <button className="flex-1 py-5 bg-orange-500 text-white rounded-[24px] font-black shadow-2xl shadow-orange-200 hover:bg-orange-600 transition-all flex items-center justify-center gap-2">
-                <ShoppingCart className="h-5 w-5" /> Add to Cart
+              <button 
+                onClick={handleAddToCart}
+                disabled={product.stock <= 0}
+                className={`flex-1 py-5 rounded-[24px] font-black shadow-2xl transition-all flex items-center justify-center gap-2 ${product.stock > 0 ? 'bg-orange-500 text-white shadow-orange-200 hover:bg-orange-600 cursor-pointer' : 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'}`}
+              >
+                <ShoppingCart className="h-5 w-5" /> {product.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
               </button>
-              <button className="flex-1 py-5 bg-gray-800 text-white rounded-[24px] font-black hover:bg-gray-900 transition-all">
+              <button 
+                onClick={handleBuyNow}
+                disabled={product.stock <= 0}
+                className={`flex-1 py-5 rounded-[24px] font-black transition-all ${product.stock > 0 ? 'bg-gray-800 text-white hover:bg-gray-900 cursor-pointer' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}
+              >
                 Buy Now
               </button>
             </div>

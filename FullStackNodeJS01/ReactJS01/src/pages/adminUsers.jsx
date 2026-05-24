@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-    CloseOutlined,
-    DeleteOutlined,
-    EditOutlined,
-    LoadingOutlined,
-    PlusOutlined,
-    ReloadOutlined,
-    SaveOutlined,
-    SearchOutlined,
-    UsergroupAddOutlined,
-} from "@ant-design/icons";
+    Users, Search, Plus, Trash2, Edit, AlertCircle, RefreshCw, X, Save, UserPlus
+} from "lucide-react";
 import { message } from "antd";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     createUserApi,
     deleteUserApi,
@@ -20,22 +13,6 @@ import {
     getUserById,
     updateUserApi,
 } from "../util/api";
-
-const GENDER_OPTIONS = [
-    { value: "", label: "Không xác định" },
-    { value: "true", label: "Nam" },
-    { value: "false", label: "Nữ" },
-];
-
-const ROLE_OPTIONS = [
-    { value: "user", label: "user" },
-    { value: "admin", label: "admin" },
-];
-
-const BOOLEAN_OPTIONS = [
-    { value: "true", label: "Có" },
-    { value: "false", label: "Không" },
-];
 
 const createEmptyForm = () => ({
     username: "",
@@ -58,21 +35,9 @@ const normalizeGender = (value) => {
     return "";
 };
 
-const getGenderLabel = (value) => {
-    const normalized = normalizeGender(value);
-    if (normalized === "true") return "Nam";
-    if (normalized === "false") return "Nữ";
-    return "—";
-};
-
-const formatDate = (value) => {
-    if (!value) return "—";
-    return new Date(value).toLocaleDateString("vi-VN");
-};
-
 const getFullName = (user) => {
     const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-    return fullName || "—";
+    return fullName || user.name || "—";
 };
 
 const AdminUsersPage = () => {
@@ -84,6 +49,9 @@ const AdminUsersPage = () => {
     const [saving, setSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
     const [query, setQuery] = useState("");
+    
+    // Modal states
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [mode, setMode] = useState("create");
     const [form, setForm] = useState(createEmptyForm);
@@ -100,21 +68,11 @@ const AdminUsersPage = () => {
         }
     }, [authLoading, isAuthenticated, currentUser, navigate]);
 
-    const loadUsers = async (nextSelectedUserId = selectedUserId) => {
+    const loadUsers = async () => {
         setLoading(true);
         try {
             const res = await getAllUsers();
-            const nextUsers = res.data?.users || [];
-            setUsers(nextUsers);
-
-            if (nextSelectedUserId) {
-                const stillExists = nextUsers.some((item) => String(item.id) === String(nextSelectedUserId));
-                if (!stillExists) {
-                    setSelectedUserId(null);
-                    setMode("create");
-                    setForm(createEmptyForm());
-                }
-            }
+            setUsers(res.data?.users || []);
         } catch (error) {
             messageApi.error(error.response?.data?.message || "Không thể tải danh sách người dùng.");
         } finally {
@@ -138,6 +96,7 @@ const AdminUsersPage = () => {
             return [
                 entry.username,
                 entry.email,
+                entry.name,
                 entry.firstName,
                 entry.lastName,
                 entry.phone,
@@ -148,11 +107,12 @@ const AdminUsersPage = () => {
         });
     }, [users, query]);
 
-    const resetForm = () => {
+    const handleCreateNew = () => {
         setSelectedUserId(null);
         setMode("create");
         setForm(createEmptyForm());
         setErrors({});
+        setIsModalOpen(true);
     };
 
     const hydrateFormFromUser = (user) => {
@@ -176,6 +136,7 @@ const AdminUsersPage = () => {
         setMode("edit");
         setSelectedUserId(userId);
         setErrors({});
+        setIsModalOpen(true);
         setSaving(true);
         try {
             const res = await getUserById(userId);
@@ -186,6 +147,7 @@ const AdminUsersPage = () => {
             hydrateFormFromUser(user);
         } catch (error) {
             messageApi.error(error.response?.data?.message || error.message || "Không thể tải dữ liệu người dùng.");
+            setIsModalOpen(false);
         } finally {
             setSaving(false);
         }
@@ -195,11 +157,11 @@ const AdminUsersPage = () => {
         const nextErrors = {};
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        if (!form.username.trim()) {
+        if (!form.username?.trim()) {
             nextErrors.username = "Username là bắt buộc.";
         }
 
-        if (!form.email.trim()) {
+        if (!form.email?.trim()) {
             nextErrors.email = "Email là bắt buộc.";
         } else if (!emailRegex.test(form.email.trim())) {
             nextErrors.email = "Email không đúng định dạng.";
@@ -217,14 +179,14 @@ const AdminUsersPage = () => {
 
     const buildPayload = () => {
         const payload = {
-            username: form.username.trim(),
-            email: form.email.trim(),
-            firstName: form.firstName.trim() || "",
-            lastName: form.lastName.trim() || "",
-            address: form.address.trim() || "",
+            username: form.username?.trim() || "",
+            email: form.email?.trim() || "",
+            firstName: form.firstName?.trim() || "",
+            lastName: form.lastName?.trim() || "",
+            address: form.address?.trim() || "",
             gender: form.gender,
-            phone: form.phone.trim() || "",
-            avatar: form.avatar.trim() || "",
+            phone: form.phone?.trim() || "",
+            avatar: form.avatar?.trim() || "",
             role: form.role,
             isActive: form.isActive,
             isLocked: form.isLocked,
@@ -249,14 +211,15 @@ const AdminUsersPage = () => {
             if (mode === "create") {
                 await createUserApi(payload);
                 messageApi.success("Tạo người dùng thành công.");
-                resetForm();
+                setIsModalOpen(false);
                 await loadUsers();
                 return;
             }
 
             await updateUserApi(selectedUserId, payload);
             messageApi.success("Cập nhật người dùng thành công.");
-            await loadUsers(selectedUserId);
+            setIsModalOpen(false);
+            await loadUsers();
         } catch (error) {
             messageApi.error(error.response?.data?.message || "Không thể lưu người dùng.");
         } finally {
@@ -267,7 +230,7 @@ const AdminUsersPage = () => {
     const handleDelete = async (userId) => {
         const targetUser = users.find((entry) => String(entry.id) === String(userId));
         const shouldDelete = window.confirm(
-            `Xóa tài khoản ${targetUser?.username || targetUser?.email || `#${userId}`} ?`,
+            `Xóa tài khoản ${targetUser?.username || targetUser?.email || `#${userId}`} ?`
         );
 
         if (!shouldDelete) {
@@ -279,7 +242,7 @@ const AdminUsersPage = () => {
             await deleteUserApi(userId);
             messageApi.success("Xóa người dùng thành công.");
             if (String(selectedUserId) === String(userId)) {
-                resetForm();
+                setIsModalOpen(false);
             }
             await loadUsers();
         } catch (error) {
@@ -291,320 +254,340 @@ const AdminUsersPage = () => {
 
     if (authLoading || loading) {
         return (
-            <div className="profile-loading">
-                <LoadingOutlined className="profile-loading__icon" />
-                <span>Đang tải khu vực quản trị...</span>
+            <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-gray-500 font-bold text-sm">Đang tải khu vực quản trị...</span>
             </div>
         );
     }
 
     return (
-        <>
+        <div className="max-w-7xl mx-auto py-8">
             {contextHolder}
-            <section className="admin-users-page">
-                <div className="admin-users-hero">
-                    <div>
-                        <span className="admin-users-hero__eyebrow">Admin Console</span>
-                        <h1>Quản lý tất cả tài khoản người dùng</h1>
-                        <p>
-                            Xem danh sách, tạo mới, cập nhật và xóa tài khoản bằng API admin được bảo vệ
-                            bởi JWT và phân quyền theo role.
-                        </p>
-                    </div>
-                    <div className="admin-users-hero__actions">
-                        <button className="btn btn--outline" type="button" onClick={() => loadUsers()}>
-                            <ReloadOutlined /> Tải lại
-                        </button>
-                        <button className="btn btn--primary" type="button" onClick={resetForm}>
-                            <PlusOutlined /> Tạo user mới
-                        </button>
-                    </div>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-gray-800 tracking-tight flex items-center gap-2">
+                        <Users className="h-8 w-8 text-orange-500" /> Quản Lý Người Dùng
+                    </h1>
+                    <p className="text-gray-500 mt-1">
+                        Xem danh sách, tạo mới, cập nhật và xóa tài khoản bằng API admin.
+                    </p>
+                </div>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => loadUsers()}
+                        className="px-5 py-3.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-black text-sm rounded-2xl transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                    >
+                        <RefreshCw className="h-4 w-4" /> Tải lại
+                    </button>
+                    <button 
+                        onClick={handleCreateNew}
+                        className="px-5 py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-sm rounded-2xl transition-all shadow-lg shadow-orange-100 flex items-center gap-2 cursor-pointer"
+                    >
+                        <Plus className="h-4 w-4" /> Tạo user mới
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content (Table Only) */}
+            <div className="space-y-6">
+                {/* Search */}
+                <div className="relative max-w-md">
+                    <input
+                        type="text"
+                        placeholder="Tìm username, email, vai trò..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="w-full bg-white border border-gray-150 rounded-2xl py-3.5 pl-12 pr-4 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all text-sm font-bold text-gray-800 shadow-sm"
+                    />
+                    <Search className="absolute left-4 top-4 h-5 w-5 text-gray-400" />
                 </div>
 
-                <div className="admin-users-layout">
-                    <section className="admin-users-panel admin-users-panel--table">
-                        <div className="admin-users-panel__header">
-                            <div>
-                                <h2>Danh sách user</h2>
-                                <p>{filteredUsers.length} tài khoản hiển thị</p>
-                            </div>
-                            <label className="admin-users-search">
-                                <SearchOutlined />
-                                <input
-                                    type="text"
-                                    placeholder="Tìm username, email, vai trò..."
-                                    value={query}
-                                    onChange={(event) => setQuery(event.target.value)}
-                                />
-                            </label>
-                        </div>
-
-                        <div className="admin-users-table-wrap">
-                            <table className="admin-users-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Username</th>
-                                        <th>Email</th>
-                                        <th>Họ tên</th>
-                                        <th>Vai trò</th>
-                                        <th>Trạng thái</th>
-                                        <th>Phone</th>
-                                        <th>Giới tính</th>
-                                        <th>Ngày tạo</th>
-                                        <th>Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {!filteredUsers.length && (
-                                        <tr>
-                                            <td colSpan="10" className="admin-users-empty">
-                                                Không có người dùng phù hợp.
-                                            </td>
-                                        </tr>
-                                    )}
-
-                                    {filteredUsers.map((entry) => (
-                                        <tr
-                                            key={entry.id}
-                                            className={String(selectedUserId) === String(entry.id) ? "is-selected" : ""}
-                                        >
-                                            <td>{entry.id}</td>
-                                            <td>{entry.username || "—"}</td>
-                                            <td>{entry.email || "—"}</td>
-                                            <td>{getFullName(entry)}</td>
-                                            <td>
-                                                <span className={`role-pill role-pill--${entry.role || "user"}`}>
-                                                    {entry.role || "user"}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span className={entry.isActive ? "status-dot active" : "status-dot inactive"}>
-                                                    {entry.isActive ? "Hoạt động" : "Ngừng hoạt động"}
-                                                </span>
-                                                <span className={`status-tag ${entry.isLocked ? "locked" : "open"}`}>
-                                                    {entry.isLocked ? "Đã khóa" : "Đang mở"}
-                                                </span>
-                                            </td>
-                                            <td>{entry.phone || "—"}</td>
-                                            <td>{getGenderLabel(entry.gender)}</td>
-                                            <td>{formatDate(entry.createdAt)}</td>
-                                            <td>
-                                                <div className="admin-users-actions">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn--ghost btn--sm"
-                                                        onClick={() => handleSelectUser(entry.id)}
-                                                    >
-                                                        <EditOutlined /> Sửa
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn--ghost btn--sm admin-users-delete"
-                                                        onClick={() => handleDelete(entry.id)}
-                                                        disabled={deletingId === entry.id}
-                                                    >
-                                                        {deletingId === entry.id ? <LoadingOutlined /> : <DeleteOutlined />}
-                                                        Xóa
-                                                    </button>
+                {/* Table */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-gray-100 bg-gray-50 text-[10px] font-black uppercase text-gray-400 tracking-wider">
+                                    <th className="py-4 px-6">ID</th>
+                                    <th className="py-4 px-6">Thông tin</th>
+                                    <th className="py-4 px-6">Vai trò</th>
+                                    <th className="py-4 px-6">Trạng thái</th>
+                                    <th className="py-4 px-6 text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-sm font-bold text-gray-700">
+                                {filteredUsers.map((entry) => (
+                                    <tr key={entry.id} className="hover:bg-gray-50/50 transition-colors">
+                                        <td className="py-4 px-6 text-xs text-gray-400 uppercase tracking-widest">
+                                            #{entry.id?.substring(entry.id.length - 6) || entry.id}
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 border border-gray-200">
+                                                    {entry.avatar ? (
+                                                        <img src={entry.avatar} alt="avatar" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <Users className="h-5 w-5 text-gray-400" />
+                                                    )}
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <aside className="admin-users-panel admin-users-panel--editor">
-                        <div className="admin-users-panel__header">
-                            <div>
-                                <h2>{mode === "create" ? "Tạo người dùng" : `Chỉnh sửa #${selectedUserId}`}</h2>
-                                <p>
-                                    {mode === "create"
-                                        ? "Tạo nhanh user mới trong hệ thống."
-                                        : "Cập nhật thông tin, vai trò và trạng thái tài khoản."}
-                                </p>
-                            </div>
-                            {mode === "edit" && (
-                                <button className="btn btn--ghost btn--sm" type="button" onClick={resetForm}>
-                                    <CloseOutlined /> Hủy chọn
-                                </button>
-                            )}
-                        </div>
-
-                        <form className="admin-users-form" onSubmit={handleSubmit}>
-                            <div className="profile-form__row">
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-username">Tên đăng nhập</label>
-                                    <input
-                                        id="admin-username"
-                                        name="username"
-                                        className="form-input"
-                                        value={form.username}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                                    />
-                                    {errors.username && <p className="form-error">{errors.username}</p>}
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-email">Email</label>
-                                    <input
-                                        id="admin-email"
-                                        name="email"
-                                        type="email"
-                                        className="form-input"
-                                        value={form.email}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
-                                    />
-                                    {errors.email && <p className="form-error">{errors.email}</p>}
-                                </div>
-                            </div>
-
-                            <div className="profile-form__row">
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-password">
-                                        {mode === "create" ? "Mật khẩu" : "Mật khẩu mới"}
-                                    </label>
-                                    <input
-                                        id="admin-password"
-                                        name="password"
-                                        type="password"
-                                        className="form-input"
-                                        value={form.password}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                                        placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Bỏ trống nếu không đổi"}
-                                    />
-                                    {errors.password && <p className="form-error">{errors.password}</p>}
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-role">Vai trò</label>
-                                    <select
-                                        id="admin-role"
-                                        className="form-input form-select"
-                                        value={form.role}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
-                                    >
-                                        {ROLE_OPTIONS.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="profile-form__row">
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-firstName">Họ</label>
-                                    <input
-                                        id="admin-firstName"
-                                        className="form-input"
-                                        value={form.firstName}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, firstName: event.target.value }))}
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-lastName">Tên</label>
-                                    <input
-                                        id="admin-lastName"
-                                        className="form-input"
-                                        value={form.lastName}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, lastName: event.target.value }))}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="profile-form__row">
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-phone">Số điện thoại</label>
-                                    <input
-                                        id="admin-phone"
-                                        className="form-input"
-                                        value={form.phone}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-gender">Giới tính</label>
-                                    <select
-                                        id="admin-gender"
-                                        className="form-input form-select"
-                                        value={form.gender}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, gender: event.target.value }))}
-                                    >
-                                        {GENDER_OPTIONS.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="form-group form-group--full">
-                                <label className="form-label" htmlFor="admin-address">Địa chỉ</label>
-                                <input
-                                    id="admin-address"
-                                    className="form-input"
-                                    value={form.address}
-                                    onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
-                                />
-                            </div>
-
-                            <div className="form-group form-group--full">
-                                <label className="form-label" htmlFor="admin-avatar">URL Avatar</label>
-                                <input
-                                    id="admin-avatar"
-                                    className="form-input"
-                                    value={form.avatar}
-                                    onChange={(event) => setForm((prev) => ({ ...prev, avatar: event.target.value }))}
-                                />
-                            </div>
-
-                            <div className="profile-form__row">
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-active">Trạng thái active</label>
-                                    <select
-                                        id="admin-active"
-                                        className="form-input form-select"
-                                        value={form.isActive}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, isActive: event.target.value }))}
-                                    >
-                                        {BOOLEAN_OPTIONS.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="admin-locked">Khóa tài khoản</label>
-                                    <select
-                                        id="admin-locked"
-                                        className="form-input form-select"
-                                        value={form.isLocked}
-                                        onChange={(event) => setForm((prev) => ({ ...prev, isLocked: event.target.value }))}
-                                    >
-                                        {BOOLEAN_OPTIONS.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="admin-users-form__footer">
-                                <button className="btn btn--ghost" type="button" onClick={resetForm} disabled={saving}>
-                                    <ReloadOutlined /> Đặt lại
-                                </button>
-                                <button className="btn btn--primary" type="submit" disabled={saving}>
-                                    {saving ? <LoadingOutlined /> : mode === "create" ? <UsergroupAddOutlined /> : <SaveOutlined />}
-                                    {mode === "create" ? "Tạo user" : "Lưu thay đổi"}
-                                </button>
-                            </div>
-                        </form>
-                    </aside>
+                                                <div>
+                                                    <p className="text-gray-900 font-black">{entry.username || getFullName(entry) || "—"}</p>
+                                                    <p className="text-xs text-gray-500 font-medium">{entry.email}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${entry.role === 'admin' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                                                {entry.role || "user"}
+                                            </span>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <div className="flex flex-col gap-1.5 items-start">
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 ${entry.isActive ? 'text-green-600 bg-green-50' : 'text-gray-500 bg-gray-100'}`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${entry.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                                                    {entry.isActive ? "Hoạt động" : "Ngừng HĐ"}
+                                                </span>
+                                                {entry.isLocked && (
+                                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-red-50 text-red-600 border border-red-100">Đã khóa</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="py-4 px-6">
+                                            <div className="flex gap-2 justify-center">
+                                                <button 
+                                                    onClick={() => handleSelectUser(entry.id)}
+                                                    className="p-2 border border-gray-150 hover:border-orange-500 rounded-xl hover:bg-orange-50 text-gray-400 hover:text-orange-500 transition-colors cursor-pointer"
+                                                    title="Sửa"
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDelete(entry.id)}
+                                                    disabled={deletingId === entry.id}
+                                                    className="p-2 border border-gray-150 hover:border-red-500 rounded-xl hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors cursor-pointer disabled:opacity-50"
+                                                    title="Xóa"
+                                                >
+                                                    {deletingId === entry.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredUsers.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="py-12 text-center">
+                                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Users className="h-8 w-8 text-gray-300" />
+                                            </div>
+                                            <h3 className="text-lg font-black text-gray-800">Không tìm thấy người dùng</h3>
+                                            <p className="text-gray-500 text-sm mt-1">Hãy thử với từ khóa khác.</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </section>
-        </>
+            </div>
+
+            {/* Modal Form */}
+            <AnimatePresence>
+                {isModalOpen && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-white rounded-3xl p-8 max-w-2xl w-full border border-gray-100 shadow-2xl my-auto"
+                        >
+                            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-800 flex items-center gap-2">
+                                        {mode === "create" ? <UserPlus className="h-6 w-6 text-orange-500" /> : <Edit className="h-6 w-6 text-orange-500" />}
+                                        {mode === "create" ? "Tạo người dùng mới" : "Chỉnh sửa tài khoản"}
+                                    </h2>
+                                    <p className="text-xs text-gray-500 font-medium mt-1">
+                                        {mode === "create" ? "Điền đầy đủ thông tin bên dưới để tạo tài khoản" : `ID: #${selectedUserId?.substring(selectedUserId.length - 6) || selectedUserId}`}
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => setIsModalOpen(false)} 
+                                    className="p-2 text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Tên đăng nhập *</label>
+                                        <input
+                                            type="text"
+                                            value={form.username}
+                                            onChange={(e) => setForm(p => ({ ...p, username: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                        {errors.username && <p className="text-red-500 text-xs mt-1 font-medium">{errors.username}</p>}
+                                    </div>
+                                    
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Email *</label>
+                                        <input
+                                            type="email"
+                                            value={form.email}
+                                            onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                        {errors.email && <p className="text-red-500 text-xs mt-1 font-medium">{errors.email}</p>}
+                                    </div>
+
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Họ</label>
+                                        <input
+                                            type="text"
+                                            value={form.firstName}
+                                            onChange={(e) => setForm(p => ({ ...p, firstName: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Tên</label>
+                                        <input
+                                            type="text"
+                                            value={form.lastName}
+                                            onChange={(e) => setForm(p => ({ ...p, lastName: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">
+                                            {mode === "create" ? "Mật khẩu *" : "Mật khẩu mới (Tùy chọn)"}
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={form.password}
+                                            onChange={(e) => setForm(p => ({ ...p, password: e.target.value }))}
+                                            placeholder={mode === "create" ? "Tối thiểu 6 ký tự" : "Bỏ trống nếu không đổi"}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                        {errors.password && <p className="text-red-500 text-xs mt-1 font-medium">{errors.password}</p>}
+                                    </div>
+
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Điện thoại</label>
+                                        <input
+                                            type="text"
+                                            value={form.phone}
+                                            onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Giới tính</label>
+                                        <select
+                                            value={form.gender}
+                                            onChange={(e) => setForm(p => ({ ...p, gender: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        >
+                                            <option value="">Không XĐ</option>
+                                            <option value="true">Nam</option>
+                                            <option value="false">Nữ</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Địa chỉ</label>
+                                        <input
+                                            type="text"
+                                            value={form.address}
+                                            onChange={(e) => setForm(p => ({ ...p, address: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                    </div>
+                                    
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">URL Avatar</label>
+                                        <input
+                                            type="text"
+                                            value={form.avatar}
+                                            onChange={(e) => setForm(p => ({ ...p, avatar: e.target.value }))}
+                                            placeholder="https://..."
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Vai trò</label>
+                                        <select
+                                            value={form.role}
+                                            onChange={(e) => setForm(p => ({ ...p, role: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        >
+                                            <option value="user">User</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1.5">Trạng thái</label>
+                                        <select
+                                            value={form.isActive}
+                                            onChange={(e) => setForm(p => ({ ...p, isActive: e.target.value }))}
+                                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm font-bold text-gray-800"
+                                        >
+                                            <option value="true">Hoạt động</option>
+                                            <option value="false">Ngừng HĐ</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="md:col-span-2 mt-2">
+                                        <label className="flex items-center gap-2 cursor-pointer p-3 bg-red-50 border border-red-100 rounded-xl">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={form.isLocked === "true"} 
+                                                onChange={(e) => setForm(p => ({ ...p, isLocked: e.target.checked ? "true" : "false" }))}
+                                                className="w-5 h-5 text-red-500 rounded border-red-300 focus:ring-red-500"
+                                            />
+                                            <span className="text-sm font-black text-red-700 uppercase tracking-wide">Khóa tài khoản (Cấm đăng nhập)</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="pt-6 mt-6 border-t border-gray-100 flex gap-3 justify-end">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsModalOpen(false)}
+                                        disabled={saving}
+                                        className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-black text-sm rounded-xl transition-all cursor-pointer"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-sm rounded-xl shadow-lg shadow-orange-100 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 min-w-[160px]"
+                                    >
+                                        {saving ? (
+                                            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                        ) : mode === "create" ? (
+                                            <><UserPlus className="h-4 w-4" /> Tạo tài khoản</>
+                                        ) : (
+                                            <><Save className="h-4 w-4" /> Lưu thay đổi</>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 };
 

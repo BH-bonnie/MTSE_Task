@@ -13,7 +13,7 @@ const initialForm = {
 };
 
 const getProfileRouteByRole = (role) => {
-    return role === "admin" ? "/admin/profile" : "/user/profile";
+    return role === "admin" ? "/admin" : "/profile";
 };
 
 const LoginPage = () => {

@@ -10,7 +10,8 @@ const userSchema = new mongoose.Schema({
     gender: { type: Boolean, default: null },
     avatar: { type: String },
     role: { type: String, default: "member" },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    isLocked: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

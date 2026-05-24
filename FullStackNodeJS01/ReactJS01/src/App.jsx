@@ -11,9 +11,18 @@ import RegisterPage from "./pages/register";
 import ForgotPasswordPage from "./pages/forgotPassword";
 import AdminUsersPage from "./pages/adminUsers";
 import UserProfilePage from "./pages/user";
+import CartPage from "./pages/CartPage";
+import OrderListPage from "./pages/OrderListPage";
+import OrderDetailPage from "./pages/OrderDetailPage";
+import AdminOrderPage from "./pages/AdminOrderPage";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminProductPage from "./pages/AdminProductPage";
+import AdminStatsPage from "./pages/AdminStatsPage";
+import AdminLayout from "./components/layout/AdminLayout";
+import { fetchCart } from "./store/slices/cartSlice";
 
 const getProfileRouteByRole = (role) => {
-    return "/profile";
+    return role === "admin" ? "/admin" : "/profile";
 };
 
 const ProtectedRoute = ({ children, roles }) => {
@@ -59,11 +68,34 @@ const PublicOnlyRoute = ({ children }) => {
 
 const AppRoutes = () => {
     const dispatch = useDispatch();
-    const { user } = useSelector((state) => state.auth);
+    const { user, isAuthenticated } = useSelector((state) => state.auth);
 
     useEffect(() => {
         dispatch(fetchCurrentUser());
     }, [dispatch]);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            dispatch(fetchCart());
+        }
+    }, [dispatch, isAuthenticated]);
+
+    const isAdmin = isAuthenticated && user?.role === "admin";
+
+    if (isAdmin) {
+        return (
+            <AdminLayout>
+                <Routes>
+                    <Route path="/admin" element={<AdminDashboard />} />
+                    <Route path="/admin/orders" element={<AdminOrderPage />} />
+                    <Route path="/admin/users" element={<AdminUsersPage />} />
+                    <Route path="/admin/products" element={<AdminProductPage />} />
+                    <Route path="/admin/stats" element={<AdminStatsPage />} />
+                    <Route path="*" element={<Navigate to="/admin" replace />} />
+                </Routes>
+            </AdminLayout>
+        );
+    }
 
     return (
         <div className="app-wrapper min-h-screen bg-[#fafafa]">
@@ -114,10 +146,28 @@ const AppRoutes = () => {
                     />
 
                     <Route
-                        path="/admin/users"
+                        path="/cart"
                         element={
-                            <ProtectedRoute roles={["admin"]}>
-                                <AdminUsersPage />
+                            <ProtectedRoute>
+                                <CartPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/orders"
+                        element={
+                            <ProtectedRoute>
+                                <OrderListPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/orders/:id"
+                        element={
+                            <ProtectedRoute>
+                                <OrderDetailPage />
                             </ProtectedRoute>
                         }
                     />

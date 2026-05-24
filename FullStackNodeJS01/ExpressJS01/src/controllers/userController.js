@@ -45,7 +45,16 @@ const getUser = async (req, res) => {
     return res.status(200).json(data);
 }
 const getAccount = async (req, res) => {
-    return res.status(200).json({ message: "Get Account Success" });
+    const User = require('../models/user');
+    try {
+        const user = await User.findOne({ email: req.user.email }).select("-password");
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        return res.status(200).json({ success: true, user });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
 }
 
 const handleSendVerificationCode = async (req, res) => {
